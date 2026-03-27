@@ -7,7 +7,7 @@ ifeq ($(ESP_PORT),)
 	ESP_PORT := $(shell $(PIO) device list 2>/dev/null | grep -E '^/dev/tty(USB|ACM)' | head -1)
 endif
 
-.PHONY: help build upload monitor um clean ports kill plot
+.PHONY: help build upload monitor um clean ports kill plot calibrate
 
 help:
 	@echo ""
@@ -21,6 +21,7 @@ help:
 	@echo "  um       - Upload + terus buka monitor"
 	@echo "  clean    - Hapus hasil build"
 	@echo "  ports    - Daftar port tersedia"
+	@echo "  calibrate - Kalibrasi interaktif (baseline + 4 magnet)"
 	@echo "  plot     - Buka real-time plotter SS49E"
 	@echo "  kill     - Matikan proses yang memakai port"
 	@echo ""
@@ -38,8 +39,13 @@ um: _check_port
 	$(PIO) run --target upload --upload-port $(ESP_PORT) && \
 	$(PIO) device monitor --port $(ESP_PORT) --baud 115200
 
+calibrate:
+	@echo "[CAL] Memulakan kalibrasi interaktif..."
+	$(PYTHON) $(dir $(abspath $(lastword $(MAKEFILE_LIST))))calibrate.py
+
 plot:
-	$(PYTHON) plotter.py
+	@echo "[PLOT] Membuka SS49E plotter..."
+	DISPLAY=:0 $(PYTHON) $(dir $(abspath $(lastword $(MAKEFILE_LIST))))plotter.py
 
 clean:
 	$(PIO) run --target clean
@@ -48,8 +54,9 @@ ports:
 	$(PIO) device list
 
 kill:
-	-pkill -f "pio device monitor" || true
-	-pkill -f "miniterm"           || true
+	-pkill -f "pio device monitor" 2>/dev/null || true
+	-pkill -f "miniterm"           2>/dev/null || true
+	-pkill -f "plotter.py"         2>/dev/null || true
 	@echo "[KILL] Selesai."
 
 _check_port:
